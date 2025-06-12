@@ -1,0 +1,3 @@
+D:/Mownit/OCR_in_Cpp/cmake-build-debug-mingw-msys/CMakeFiles/OCR_in_Cpp.dir
+D:/Mownit/OCR_in_Cpp/cmake-build-debug-mingw-msys/CMakeFiles/edit_cache.dir
+D:/Mownit/OCR_in_Cpp/cmake-build-debug-mingw-msys/CMakeFiles/rebuild_cache.dir
