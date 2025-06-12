@@ -8,8 +8,8 @@
 #include <cmath>
 
 const std::string IMAGE_FOLDER = "../img/";
-const std::string IMAGE_NAME = "test_image5.png";
-const std::string tekstGroundTruth = "czcionka cambria zobaczymy czy dziala test test test nie mam juz pomyslu";
+std::string IMAGE_NAME = "test_image5.png";
+std::string tekstGroundTruth = "czcionka cambria zobaczymy czy dziala test test test nie mam juz pomyslu";
 
 struct SzablonObrazu {
     char znak;
@@ -311,6 +311,19 @@ std::string rekonstruujTekst(const std::vector<char>& rozpoznaneZnaki, const std
 }
 
 int main() {
+
+    std::cout << "Podaj nazwę pliku w folderze img:\t";
+    std::string buf;
+    std::cin >> buf;
+    if (buf.length() != 0) {
+        IMAGE_NAME = buf;
+    }
+    std::cout << "Jeżeli chcesz zobaczyć poprawność OCR podaj tekst, któy jest na obrazku:\t";
+    buf.clear();
+    std::cin >> buf;
+    if (buf.length() != 0) {
+        tekstGroundTruth = buf;
+    }
 
     std::string folderSzablonow = "../assets";
     std::vector<char> alfabetDoRozpoznania = {

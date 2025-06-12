@@ -78,16 +78,14 @@ OCR_in_Cpp/
 ## 🚀 Uruchamianie
 
 1.  Upewnij się, że folder `assets/` z szablonami znaków oraz folder `img/` z obrazami testowymi znajdują się w odpowiednim miejscu względem pliku wykonywalnego (domyślnie, jeśli uruchamiasz z folderu `build`, ścieżki `../assets/` i `../img/` powinny działać). Ścieżki są zdefiniowane w `main.cpp` jako `IMAGE_FOLDER` i `folderSzablonow`.
-2.  W pliku `main.cpp` możesz zmienić:
-    *   `IMAGE_NAME`: aby wybrać inny obraz testowy z folderu `img/`.
-    *   `tekstGroundTruth`: aby dostosować tekst referencyjny dla wybranego obrazu.
-3.  Uruchom program z folderu `build`:
+2.  Uruchom program z folderu `build`:
     ```bash
     ./OCR_in_Cpp
     # lub w Windows:
     # .\OCR_in_Cpp.exe
     ```
-    Program wyświetli przetworzony obraz z rozpoznanymi znakami oraz wypisze zrekonstruowany tekst i statystyki w konsoli.
+3.  Program zapyta o nazwę pliku oraz o opcjonalny tekst, który znajduje się na obrazku.
+4.  Program wyświetli przetworzony obraz z rozpoznanymi znakami oraz wypisze zrekonstruowany tekst i statystyki w konsoli.
 
 ## ⚙️ Jak To Działa? (Szczegółowy Opis Kodu)
 
