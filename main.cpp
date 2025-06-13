@@ -1,4 +1,5 @@
 #include <opencv2/opencv.hpp>
+#include <opencv2/imgproc.hpp>
 #include <iostream>
 #include <vector>
 #include <string>
@@ -8,8 +9,8 @@
 #include <cmath>
 
 const std::string IMAGE_FOLDER = "../img/";
-std::string IMAGE_NAME = "test_image5.png";
-std::string tekstGroundTruth = "czcionka cambria zobaczymy czy dziala test test test nie mam juz pomyslu";
+std::string IMAGE_NAME = "test_image3.png";
+std::string tekstGroundTruth = "lorem ipsum dolor sit amet, consectetur adipiscing elit. fusce fermentum lorem id lorem convallis, ac.";
 
 struct SzablonObrazu {
     char znak;
@@ -206,9 +207,7 @@ std::vector<cv::Mat> segmentujNormalizujZnaki(const cv::Mat& obrazBinarnyWejscio
         }
     }
 
-    std::sort(kandydaciNaZnaki.begin(), kandydaciNaZnaki.end(),
-                        [](const std::pair<cv::Rect, cv::Mat>& paraA, const std::pair<cv::Rect, cv::Mat>& paraB) {
-
+    std::sort(kandydaciNaZnaki.begin(), kandydaciNaZnaki.end(), [](const std::pair<cv::Rect, cv::Mat>& paraA, const std::pair<cv::Rect, cv::Mat>& paraB) {
                         const cv::Rect& a = paraA.first;
                         const cv::Rect& b = paraB.first;
 
@@ -231,21 +230,90 @@ std::vector<cv::Mat> segmentujNormalizujZnaki(const cv::Mat& obrazBinarnyWejscio
     return wysegmentowaneZnakiDlaPorownania;
 }
 
-char rozpoznajZnakPrzezMatchTemplate(const cv::Mat& obrazSegmentowany32x32, const std::vector<SzablonObrazu>& bazaSzablonowObrazow, int segmentIndexForDebug = -1) {
-    if (obrazSegmentowany32x32.empty() || obrazSegmentowany32x32.size() != cv::Size(32,32) || obrazSegmentowany32x32.type() != CV_8U) return '#';
+char rozpoznajZnakPrzezMatchTemplate(const cv::Mat& obrazSegmentowany32x32_8U, const std::vector<SzablonObrazu>& bazaSzablonowObrazow, int segmentIndexForDebug = -1) {
+    if (obrazSegmentowany32x32_8U.empty() || obrazSegmentowany32x32_8U.size() != cv::Size(32,32) || obrazSegmentowany32x32_8U.type() != CV_8U) return '#';
     if (bazaSzablonowObrazow.empty()) return '#';
+
     char najlepszyZnak = '#';
     double maxWspolczynnikKorelacji = -2.0;
+
+    cv::Mat I_32F;
+    obrazSegmentowany32x32_8U.convertTo(I_32F, CV_32F);
+
+    int dft_rows = cv::getOptimalDFTSize(I_32F.rows + I_32F.rows - 1); // Lub po prostu I_32F.rows * 2
+    int dft_cols = cv::getOptimalDFTSize(I_32F.cols + I_32F.cols - 1); // Lub po prostu I_32F.cols * 2
+
+
     for (const auto& szablon : bazaSzablonowObrazow) {
-        if (szablon.obraz32x32.empty() || szablon.obraz32x32.size() != obrazSegmentowany32x32.size() || szablon.obraz32x32.type() != obrazSegmentowany32x32.type()) continue;
-        cv::Mat wynikPorownania;
-        cv::matchTemplate(obrazSegmentowany32x32, szablon.obraz32x32, wynikPorownania, cv::TM_CCOEFF_NORMED);
-        double wspolczynnikKorelacji = wynikPorownania.at<float>(0,0);
+        if (szablon.obraz32x32.empty() || szablon.obraz32x32.size() != obrazSegmentowany32x32_8U.size() || szablon.obraz32x32.type() != obrazSegmentowany32x32_8U.type()) {
+            continue;
+        }
+
+        cv::Mat T_32F;
+        szablon.obraz32x32.convertTo(T_32F, CV_32F);
+
+        cv::Scalar mean_I_scalar = cv::mean(I_32F);
+        cv::Scalar mean_T_scalar = cv::mean(T_32F);
+        float mean_I = static_cast<float>(mean_I_scalar[0]);
+        float mean_T = static_cast<float>(mean_T_scalar[0]);
+
+        cv::Mat I_prime = I_32F - mean_I;
+        cv::Mat T_prime = T_32F - mean_T;
+
+        cv::Mat padded_I_prime;
+        cv::copyMakeBorder(I_prime, padded_I_prime, 0, dft_rows - I_prime.rows, 0, dft_cols - I_prime.cols, cv::BORDER_CONSTANT, cv::Scalar::all(0));
+        cv::Mat padded_T_prime;
+        cv::copyMakeBorder(T_prime, padded_T_prime, 0, dft_rows - T_prime.rows, 0, dft_cols - T_prime.cols, cv::BORDER_CONSTANT, cv::Scalar::all(0));
+
+
+        cv::Mat dft_I, dft_T_conj;
+        cv::dft(padded_I_prime, dft_I, cv::DFT_COMPLEX_OUTPUT);
+        cv::dft(padded_T_prime, dft_T_conj, cv::DFT_COMPLEX_OUTPUT);
+
+        cv::mulSpectrums(dft_I, dft_T_conj, dft_T_conj, 0, true);
+
+        cv::Mat correlation_map_complex;
+        cv::idft(dft_T_conj, correlation_map_complex, cv::DFT_SCALE | cv::DFT_REAL_OUTPUT);
+
+        double licznik = I_prime.dot(T_prime);
+
+        double licznik_dft = correlation_map_complex.at<float>(0,0);
+
+        double sum_I_prime_sq = cv::sum(I_prime.mul(I_prime))[0];
+        double sum_T_prime_sq = cv::sum(T_prime.mul(T_prime))[0];
+
+        sum_I_prime_sq = std::max(0.0, sum_I_prime_sq);
+        sum_T_prime_sq = std::max(0.0, sum_T_prime_sq);
+
+        double norm_I_prime = std::sqrt(sum_I_prime_sq);
+        double norm_T_prime = std::sqrt(sum_T_prime_sq);
+
+        double mianownik = norm_I_prime * norm_T_prime;
+        double wspolczynnikKorelacji = 0.0;
+
+        if (mianownik < 1e-6) {
+            if (norm_I_prime < 1e-3 && norm_T_prime < 1e-3) {
+                wspolczynnikKorelacji = 1.0;
+            } else if (norm_I_prime < 1e-3 || norm_T_prime < 1e-3) {
+                 wspolczynnikKorelacji = 0.0;
+            }
+             if (std::abs(licznik_dft) < 1e-6 && mianownik < 1e-6 ) {
+                wspolczynnikKorelacji = 1.0;
+            } else if (mianownik < 1e-6) {
+                wspolczynnikKorelacji = 0.0;
+            }
+
+        } else {
+            wspolczynnikKorelacji = licznik_dft / mianownik;
+        }
+
+        wspolczynnikKorelacji = std::max(-1.0, std::min(1.0, wspolczynnikKorelacji));
+
         if (wspolczynnikKorelacji > maxWspolczynnikKorelacji) {
-            maxWspolczynnikKorelacji = wspolczynnikKorelacji; najlepszyZnak = szablon.znak;
+            maxWspolczynnikKorelacji = wspolczynnikKorelacji;
+            najlepszyZnak = szablon.znak;
         }
     }
-
     return najlepszyZnak;
 }
 
@@ -288,14 +356,15 @@ std::string rekonstruujTekst(const std::vector<char>& rozpoznaneZnaki, const std
         const cv::Rect& aktZnakRect = pozycjeZnakow[i];
         const char& aktZnakChar = rozpoznaneZnaki[i];
 
-        if (aktZnakRect.y > popZnakRect.y + popZnakRect.height * 1.5) {
+        if (aktZnakRect.y > popZnakRect.y + popZnakRect.height) {
             if (!zrekonstruowanyTekst.empty() && zrekonstruowanyTekst.back() != '\n') {
                 zrekonstruowanyTekst += '\n';
             }
         }
-        else if (popZnakChar != '#' &&
+
+        else if (popZnakChar != '#' && aktZnakChar != '#' &&
                  aktZnakChar != '.' && aktZnakChar != ',' && aktZnakChar != '?' && aktZnakChar != '!' &&
-                 aktZnakRect.x > popZnakRect.x + popZnakRect.width + sredniaSzerokoscZnaku * 0.30) {
+                 aktZnakRect.x > popZnakRect.x + popZnakRect.width + sredniaSzerokoscZnaku * 0.35) {
             if (!zrekonstruowanyTekst.empty() && zrekonstruowanyTekst.back() != ' ' && zrekonstruowanyTekst.back() != '\n') {
                 zrekonstruowanyTekst += ' ';
             }
@@ -312,16 +381,17 @@ std::string rekonstruujTekst(const std::vector<char>& rozpoznaneZnaki, const std
 
 int main() {
 
-    std::cout << "Podaj nazwę pliku w folderze img:\t";
+    std::cout << "Podaj nazwę pliku w folderze img:\n";
     std::string buf;
-    std::cin >> buf;
-    if (buf.length() != 0) {
+    std::getline(std::cin, buf);
+    if (!buf.empty()) {
         IMAGE_NAME = buf;
     }
-    std::cout << "Jeżeli chcesz zobaczyć poprawność OCR podaj tekst, któy jest na obrazku:\t";
+
+    std::cout << "Jeżeli chcesz zobaczyć poprawność OCR podaj tekst, któy jest na obrazku:\n";
     buf.clear();
-    std::cin >> buf;
-    if (buf.length() != 0) {
+    std::getline(std::cin, buf);
+    if (!buf.empty()) {
         tekstGroundTruth = buf;
     }
 
