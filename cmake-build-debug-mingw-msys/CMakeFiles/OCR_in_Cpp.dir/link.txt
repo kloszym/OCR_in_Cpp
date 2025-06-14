@@ -1,3 +1,0 @@
-D:\MSys\mingw64\bin\cmake.exe -E rm -f CMakeFiles\OCR_in_Cpp.dir/objects.a
-D:\MSys\mingw64\bin\ar.exe qc CMakeFiles\OCR_in_Cpp.dir/objects.a @CMakeFiles\OCR_in_Cpp.dir\objects1.rsp
-D:\MSys\mingw64\bin\g++.exe -g -Wl,--whole-archive CMakeFiles\OCR_in_Cpp.dir/objects.a -Wl,--no-whole-archive -o OCR_in_Cpp.exe -Wl,--out-implib,libOCR_in_Cpp.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\OCR_in_Cpp.dir\linkLibs.rsp
